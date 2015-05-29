@@ -21,6 +21,9 @@ class Table
 		@rows[row].cells[col].FillWith text
 		return
 
+	ValueOfCell: (row, col) ->
+		@rows[row].cells[col].Value()
+
 	InsertIntoPageAt: (element) ->
 		element.appendChild @dom
 		@editor.InsertIntoPageAt element
@@ -49,6 +52,9 @@ class Cell
 		@dom.appendChild content
 		return
 
+	Value: ->
+		@dom.firstChild?.nodeValue or ""
+
 class Editor
 	constructor: ->
 		@CommitAndHide = @CommitAndHideGenerator()
@@ -68,7 +74,7 @@ class Editor
 	ShowFor: (cell) ->
 		editor = @
 		->
-			editor.dom.value = cell.dom.firstChild?.nodeValue or ""
+			editor.dom.value = cell.Value()
 			editor.dom.style.top = "#{cell.dom.offsetTop}px"
 			editor.dom.style.left = "#{cell.dom.offsetLeft}px"
 			editor.dom.style.visibility = "visible"
@@ -116,3 +122,9 @@ table.FillCell 0, 0, "X1"
 table.FillCell 1, 0, "X2"
 table.FillCell 2, 0, "X3"
 table.InsertIntoPageAt document.body
+
+link = document.createElement "a"
+link.appendChild document.createTextNode "test"
+link.addEventListener "click", -> console.log table.ValueOfCell 1, 0
+link.href = "\#"
+document.body.appendChild link
