@@ -2,10 +2,10 @@ MaxPositive = (list) ->
 	Math.max.apply @, [0].concat list
 
 class Table
-	constructor: (editor) ->
+	constructor: ->
 		@dom = document.createElement "table"
 		@rows = []
-		@editor = editor
+		@editor = new Editor
 
 	AddRow: ->
 		row = new Row @
@@ -23,6 +23,7 @@ class Table
 
 	InsertIntoPageAt: (element) ->
 		element.appendChild @dom
+		@editor.InsertIntoPageAt element
 		return
 
 class Row
@@ -40,7 +41,7 @@ class Cell
 	constructor: (row) ->
 		@dom = row.dom.insertCell()
 		@dom.classList.add "lst_cell"
-		@dom.ondblclick = editor.ShowFor @
+		@dom.addEventListener "dblclick", row.editor.ShowFor @
 
 	FillWith: (text) ->
 		@dom.removeChild @dom.firstChild while @dom.firstChild?
@@ -50,10 +51,14 @@ class Cell
 
 class Editor
 	constructor: ->
+		@CommitAndHide = @CommitAndHideGenerator()
+		@RevertAndHide = @RevertAndHideGenerator()
+		@KeyHandler = @KeyHandlerGenerator()
 		@dom = document.createElement "textarea"
 		@dom.style.position = "absolute"
 		@dom.style.visibility = "hidden"
-		@dom.onblur = @CommitAndHide()
+		@dom.addEventListener "blur", @CommitAndHide
+		@dom.addEventListener "keydown", @KeyHandler
 		@cell = null
 
 	InsertIntoPageAt: (element) ->
@@ -71,7 +76,7 @@ class Editor
 			editor.cell = cell
 			return
 
-	CommitAndHide: ->
+	CommitAndHideGenerator: ->
 		editor = @
 		->
 			editor.cell?.FillWith editor.dom.value
@@ -79,9 +84,29 @@ class Editor
 			editor.dom.style.visibility = "hidden"
 			return
 
-editor = new Editor
-editor.InsertIntoPageAt document.body
-table = new Table editor
+	RevertAndHideGenerator: ->
+		editor = @
+		->
+			editor.cell = null
+			editor.dom.style.visibility = "hidden"
+			return
+
+	KeyHandlerGenerator: ->
+		editor = @
+		(event) ->
+			if event.defaultPrevented
+				return
+			key = event.key or event.keyCode
+			switch key
+				when "Enter", 13
+					editor.CommitAndHide()
+					event.preventDefault()
+				when "Escape", 27
+					editor.RevertAndHide()
+					event.preventDefault()
+			return
+
+table = new Table
 table.AddRow()
 table.AddRow()
 table.AddRow()
