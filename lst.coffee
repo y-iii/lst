@@ -40,6 +40,9 @@ class Row
 		@cells.push cell
 		return
 
+	ValueOfCell: (col) ->
+		@cells[col].Value()
+
 class Cell
 	constructor: (row) ->
 		@dom = row.dom.insertCell()
@@ -112,19 +115,27 @@ class Editor
 					event.preventDefault()
 			return
 
+Tokenize = (str) ->
+	x.trim() for x in str.split /([\*\/\^\(\)])/ when x.trim().length > 0
+
 table = new Table
 table.AddRow()
 table.AddRow()
 table.AddRow()
 table.AddColumn()
 table.AddColumn()
-table.FillCell 0, 0, "X1"
-table.FillCell 1, 0, "X2"
-table.FillCell 2, 0, "X3"
+table.FillCell 0, 0, "кг"
+table.FillCell 1, 0, "м"
+table.FillCell 2, 0, "с"
+table.FillCell 0, 1, "Вт"
+table.FillCell 1, 1, "кг * м^2 / (с *с^2)"
 table.InsertIntoPageAt document.body
 
 link = document.createElement "a"
 link.appendChild document.createTextNode "test"
-link.addEventListener "click", -> console.log table.ValueOfCell 1, 0
+f = (e) ->
+	console.log Tokenize table.ValueOfCell 1, 1
+	e.preventDefault()
+link.addEventListener "click", f
 link.href = "\#"
 document.body.appendChild link
