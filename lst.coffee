@@ -1,6 +1,12 @@
 MaxPositive = (list) ->
 	Math.max.apply @, [0].concat list
 
+Any = (list) ->
+	true in (Boolean x for x in list)
+
+All = (list) ->
+	not (false in (Boolean x for x in list))
+
 class Table
 	constructor: ->
 		@dom = document.createElement "table"
@@ -118,6 +124,47 @@ class Editor
 Tokenize = (str) ->
 	x.trim() for x in str.split /([\*\/\^\(\)])/ when x.trim().length > 0
 
+IsTokenizable = (str) ->
+	Any (x in str for x in "*/^()")
+
+IsNumeric = (str) ->
+	All (x in "0123456789." for x in str)
+
+class Fraction
+	constructor: (@num, @denom = 1) ->
+
+	ToFloat: ->
+		@num / @denom
+
+	ProductWith: (factor) ->
+		new Fraction @num * factor.num, @denom * factor.denom
+
+	Reciprocal: ->
+		new Fraction @denom, @num
+
+	ToPower: (exponent) ->
+		new Fraction @num ** exponent, @denom ** exponent
+
+class CanonicalSI
+	constructor: (@factor, @units) ->
+
+CanonicalFrom = (obj) ->
+	switch typeof obj
+		when "string"
+			if IsTokenizable obj
+				CanonicalFromFormula obj
+			else if IsNumeric obj
+				new CanonicalSI (new Fraction (+obj)), {}
+			else
+				new CanonicalSI (new Fraction 1), {"#{obj}": 1}
+		when "object"
+			if obj instanceof "CanonicalSI"
+				obj
+			else
+				null
+		else
+			null
+
 CanonicalFromFormula = (formula) ->
 	tokens = Tokenize formula
 	canonicals = []
@@ -125,34 +172,26 @@ CanonicalFromFormula = (formula) ->
 		[operator, operand] = [tokens[index - 1] or "*", token]
 		switch operator
 			when "*"
-				canonicals.push CanonicalFromToken operand
+				canonicals.push CanonicalFrom operand
 			when "/"
-				canonicals.push CanonicalReciprocal CanonicalFromToken operand
+				canonicals.push CanonicalReciprocal CanonicalFrom operand
 			when "^"
 				canonicals.push CanonicalToPower canonicals.pop(), operand
-	canonicals.reduce CanonicalProduct, {factor: 1, units: {}}
+	console.log canonicals
+	canonicals.reduce CanonicalProduct, (new CanonicalSI (new Fraction 1), {})
 
-CanonicalFromToken = (token) ->
-	switch typeof token
-		when "number"
-			{factor: (+token), units: {}}
-		when "string"
-			{factor: 1, units: {"#{token}": 1}}
-		when "object"
-			token
-
-ObjectFromPairs = (pairList) ->
-	pairList.reduce ((acc, pair) -> acc[pair[0]] = pair[1]; acc), {}
+UnitsFromPairs = (pairList) ->
+	pairList.reduce ((acc, pair) -> acc[pair[0]] = pair[1] + (acc[pair[0]] or 0); acc), {}
 
 CanonicalReciprocal = (x) ->
-	{factor: 1 / x.factor, units: ObjectFromPairs ([k, -v] for k, v of x.units)}
+	new CanonicalSI x.factor.Reciprocal(), UnitsFromPairs ([k, -v] for k, v of x.units)
 
 CanonicalToPower = (x, pow) ->
-	{factor: x.factor ** (+pow), units: ObjectFromPairs ([k, (+pow)] for k, v of x.units)}
+	new CanonicalSI (x.factor.ToPower (+pow)), UnitsFromPairs ([k, v * (+pow)] for k, v of x.units)
 
 CanonicalProduct = (x, y) ->
-	# {factor: x.factor * y.factor, units: ObjectFromPairs ([k, ])}
-	null
+	new CanonicalSI (x.factor.ProductWith y.factor),
+	UnitsFromPairs (([kx, vx] for kx, vx of x.units).concat ([ky, vy] for ky, vy of y.units))
 
 table = new Table
 table.AddRow()
@@ -164,15 +203,15 @@ table.FillCell 0, 0, "кг"
 table.FillCell 1, 0, "м"
 table.FillCell 2, 0, "с"
 table.FillCell 0, 1, "Вт"
-table.FillCell 1, 1, "кг * м / (с * с^2) * м"
-table.FillCell 2, 1, "кг / (2*с)^2 * м"
+table.FillCell 1, 1, "кг * м / (с * (2*с)^2) * м"
+table.FillCell 2, 1, "кг / 2 / с^2 * м"
 table.InsertIntoPageAt document.body
 
 link = document.createElement "a"
 link.appendChild document.createTextNode "test"
 f = (e) ->
 	console.log Tokenize table.ValueOfCell 2, 1
-	console.log CanonicalFromFormula table.ValueOfCell 2, 1
+	console.log CanonicalFrom table.ValueOfCell 2, 1
 	e.preventDefault()
 link.addEventListener "click", f
 link.href = "\#"
